@@ -80,10 +80,15 @@ function failPending(message) {
   pending.clear();
 }
 ws.addEventListener('message', event => {
-  const m = JSON.parse(event.data), p = pending.get(m.id);
+  const m = JSON.parse(event.data);
+  if (m.method === 'Target.detachedFromTarget' && m.params?.sessionId === sid) {
+    sid=undefined;selectedTarget=undefined;
+  }
+  const p = pending.get(m.id);
   if (!p) return;
   clearTimeout(p.timer); pending.delete(m.id);
-  if (m.error) p.reject(Error(JSON.stringify(m.error))); else p.resolve(m.result);
+  if (m.error) p.reject(Object.assign(Error(JSON.stringify(m.error)), {protocolMessage:m.error.message}));
+  else p.resolve(m.result);
 });
 ws.addEventListener('error', e => { console.error('CHROME_ERROR', e.message || e.type); failPending('Chrome WebSocket error'); close(); process.exitCode=1; });
 ws.addEventListener('close', e => { console.log('CHROME_DISCONNECTED', e.code); failPending('Chrome disconnected'); input.close(); });
@@ -100,13 +105,21 @@ async function tabs() {
   return (await cdp('Target.getTargets')).targetInfos.filter(t => t.type === 'page').map(t => ({targetId:t.targetId,title:t.title,url:t.url}));
 }
 async function attach(targetId) {
-  if (sid && selectedTarget?.targetId === targetId) return selectedTarget;
   const found = (await tabs()).find(t => t.targetId === targetId);
-  if (!found) throw Error('标签页已失效，请重新 tabs()');
+  if (!found) {
+    if (selectedTarget?.targetId === targetId) { sid=undefined;selectedTarget=undefined; }
+    throw Error('标签页已失效，请重新 tabs()');
+  }
+  if (sid && selectedTarget?.targetId === targetId) return found;
   if (sid) {
     const previousSession = sid;
     sid=undefined;selectedTarget=undefined;
-    await cdp('Target.detachFromTarget',{sessionId:previousSession});
+    try {
+      await cdp('Target.detachFromTarget',{sessionId:previousSession});
+    } catch (error) {
+      // 标签页可能在枚举后关闭；只容忍确定的旧会话失效，其他错误继续上报。
+      if (!/^(Session with given id not found\.?|No session with given id\.?)$/.test(error.protocolMessage || '')) throw error;
+    }
   }
   const result = await cdp('Target.attachToTarget',{targetId,flatten:true});
   sid=result.sessionId;selectedTarget=found;

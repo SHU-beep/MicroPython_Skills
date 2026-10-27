@@ -77,7 +77,10 @@ status()
 | 超时 | 区分握手等待授权、协议响应超时与页面加载；查询进程/连接状态。只回显时继续读取，不重复发送写入 |
 | 403、`EACCES`、拒绝授权 | 区分浏览器授权、操作系统和宿主权限；遵守相应权限流程，不复制浏览器配置绕过 |
 | 写入或提交后断线 | 先读回服务器/页面状态，再决定下一步；不自动重放上传、创建、发送或删除 |
+| 附加的标签页被关闭 | 脚本收到匹配的 `Target.detachedFromTarget` 后清除缓存会话，浏览器级连接继续复用；重新枚举后直接附加另一个目标。旧会话失效的通知不能清除新目标的会话 |
 
 验收需证明：连接当前会话 → 核对目标 → 完成授权范围内操作 → 读回结果。静态语法检查、文件存在或控制横幅均不能代替实际验收。只读连接验证可枚举标签页、读取文档、滚动并恢复位置、截图；没有业务修改需求时不额外编辑文档。
+
+会话生命周期回归测试使用 Node.js 内置测试运行器，无需浏览器授权：`node --test "<技能绝对目录>/scripts/tests/chrome-session.test.cjs"`。测试覆盖关闭标签页、迟到或无关的通知、旧会话失效竞态及其他协议错误；它不能代替实际 Chrome 验证。
 
 依据：[Chrome 现有会话连接与授权](https://developer.chrome.com/blog/chrome-devtools-mcp-debug-your-browser-session)、[旧式远程调试参数限制](https://developer.chrome.com/blog/remote-debugging-port)、[CDP Target 域](https://chromedevtools.github.io/devtools-protocol/tot/Target/)。工具命令以实际安装版本的指南为准。

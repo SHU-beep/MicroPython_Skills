@@ -189,7 +189,9 @@ engineering-document-standard/
 │   ├── delivery-workflow.md
 │   ├── chrome-connection.md
 │   └── chrome-editing.md
-└── scripts/chrome-session.cjs
+└── scripts/
+    ├── chrome-session.cjs
+    └── tests/chrome-session.test.cjs
 ```
 
 安装时复制整个目录至所用 AI 宿主的技能目录，保留相对路径。按本仓库现有 Claude Code 安装约定，也可单独复制：
